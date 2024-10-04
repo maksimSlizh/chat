@@ -81,7 +81,23 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Неверный пароль" });
     }
 
-  } catch (error) {
+    generateTokenAndSetCookie(user.id, res);
 
+    res.status(200).json({
+      message: "Пользователь успешно авторизован",
+      user,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message, 'error': 'login controller' });
+  }
+}
+
+export const logout = (req, res) => {
+  try {
+    res.clearCookie('token', '', {maxAge: 0,});
+    res.status(200).json({ message: "Вы вышли из аккаунта" });
+  } catch (error) {
+    res.status(500).json({ message: error.message, 'error': 'logout controller' });
   }
 }
