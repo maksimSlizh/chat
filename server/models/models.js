@@ -35,6 +35,11 @@ const User = sequelize.define('User', {
   avatar: {
     type: DataTypes.STRING,
   },
+  role: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'user',  // По умолчанию "user", но может быть "admin"
+  }
 });
 
 // Модель сообщения
@@ -47,15 +52,15 @@ const Message = sequelize.define('Message', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: User,  // Ссылка на модель пользователя (отправителя)
+      model: User,
       key: 'id',
     },
   },
   receiverId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,  // ReceiverId не обязательно для групповых сообщений
     references: {
-      model: User,  // Ссылка на модель пользователя (получателя)
+      model: User,
       key: 'id',
     },
   },
@@ -63,7 +68,7 @@ const Message = sequelize.define('Message', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Conversations',  // Ссылка на модель переписки
+      model: 'Conversations',
       key: 'id',
     },
   }
@@ -72,21 +77,20 @@ const Message = sequelize.define('Message', {
 // Модель переписки (Conversation)
 const Conversation = sequelize.define('Conversation', {
   participants: {
-    type: DataTypes.JSON,  // Хранение массива участников (ID пользователей) в формате JSON
-    allowNull: false,      // Поле обязательное
+    type: DataTypes.JSON,
+    allowNull: false,  // Участники переписки (массив ID пользователей)
   },
   messages: {
-    type: DataTypes.JSON,  // Хранение массива сообщений (ID сообщений) в формате JSON
+    type: DataTypes.JSON,  // Массив сообщений (ID сообщений)
     allowNull: false,
-    defaultValue: [],      // Значение по умолчанию - пустой массив
+    defaultValue: [],
   }
 });
 
 // Связи между моделями
 
-// Один пользователь может участвовать в нескольких переписках (многие ко многим)
 User.belongsToMany(Conversation, {
-  through: 'UserConversations',  // Промежуточная таблица для связи многие ко многим
+  through: 'UserConversations',
   foreignKey: 'userId',
   otherKey: 'conversationId'
 });
@@ -98,16 +102,8 @@ Conversation.belongsToMany(User, {
 });
 
 // Одна переписка может содержать несколько сообщений
-Conversation.hasMany(Message, { foreignKey: 'conversationId', as: 'conversationMessages' });  // Переименовали алиас
+Conversation.hasMany(Message, { foreignKey: 'conversationId', as: 'conversationMessages' });
 Message.belongsTo(Conversation, { foreignKey: 'conversationId' });
-
-// Одно сообщение принадлежит одному пользователю (отправителю)
-User.hasMany(Message, { foreignKey: 'userId' });
-Message.belongsTo(User, { foreignKey: 'userId' });
-
-// Связь сообщения с получателем (receiverId)
-User.hasMany(Message, { foreignKey: 'receiverId', as: 'receivedMessages' });
-Message.belongsTo(User, { foreignKey: 'receiverId', as: 'receiver' });
 
 // Экспортируем модели
 export { User, Message, Conversation };

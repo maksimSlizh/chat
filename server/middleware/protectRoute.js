@@ -13,14 +13,9 @@ const protectRoute = async (req, res, next) => {
     // Расшифровываем токен
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Логируем расшифрованный токен
-    console.log("Расшифрованный токен:", decoded);
 
     // Извлекаем userId вместо id
     const userId = decoded.userId;
-
-    // Логируем ID пользователя
-    console.log("Идентификатор пользователя из токена:", userId);
 
     // Ищем пользователя по userId
     const user = await User.findByPk(userId, {
@@ -29,7 +24,6 @@ const protectRoute = async (req, res, next) => {
 
     // Логируем результат поиска пользователя
     if (!user) {
-      console.log("Пользователь не найден");
       return res.status(401).json({ message: "Пользователь не найден, ProtectRoute user" });
     }
 
