@@ -1,9 +1,15 @@
 .sidebar {
+  position: relative;
   width: 400px;
+  /* Ограничиваем ширину sidebar */
   display: flex;
   flex-direction: column;
   height: 100%;
   /* Растягиваем сайдбар на всю высоту родителя */
+  overflow: hidden;
+  /* Скрываем элементы, выходящие за пределы sidebar */
+  border-top-left-radius: 1rem;
+  border-bottom-left-radius: 1rem;
 
   &__content {
     display: flex;
@@ -95,4 +101,110 @@
     font-size: 14px;
     /* Размер текста для message */
   }
+
+  &__button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.7);
+      box-shadow: 0 0 0 0.1rem rgba(255, 255, 255, 0.152);
+    }
+  }
+}
+
+.sidebar__menu {
+  position: absolute;
+  top: 0;
+  padding-top: 100px;
+  left: -100%;
+  /* Скрываем меню за пределами боковой панели */
+  width: 100%;
+  /* Меню занимает всю ширину sidebar */
+  height: 100%;
+  background-color: #3e3e3e;
+  /* Темный фон для меню */
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  transition: all 0.3s ease-in-out;
+  border-top-left-radius: 1rem;
+  border-bottom-left-radius: 1rem;
+  /* Плавная анимация появления */
+}
+
+.sidebar__menu--open {
+  left: 0;
+  /* Меню выезжает, занимая всю ширину sidebar */
+}
+
+.sidebar__menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar__menu-list button {
+  background-color: transparent;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sidebar__menu-list button:hover {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.sidebar__close-button {
+  position: absolute;
+  top: 30px;
+  right: 20px;
+  background-color: transparent;
+  border: none;
+  color: rgb(0, 0, 0);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.sidebar__image {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar__card.selected {
+  background-color: rgba(33, 99, 169, 0.8); /* Синий цвет для выбранного элемента */
+  color: white;
+}
+
+.sidebar__status {
+  width: 10px;          /* Ширина точки */
+  height: 10px;        /* Высота точки */
+  border-radius: 50%;  /* Делает точку круглой */
+  display: inline-block; /* Чтобы точка отображалась в одной строке с текстом */
+  margin-right: 8px;   /* Отступ между точкой и текстом */
+}
+
+.sidebar__status.online {
+  background-color: rgb(37, 101, 0); /* Цвет точки для статуса онлайн */
+}
+
+.sidebar__status.offline {
+  /* Отсутствие стиля для оффлайн - просто не показываем точку */
+  display: none; /* Скрываем элемент, если пользователь оффлайн */
 }

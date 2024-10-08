@@ -1,4 +1,9 @@
 import React, { useState } from 'react'
+import { useDispatch } from 'react-redux';
+import { useNavigate, NavLink } from 'react-router-dom';
+import { validateSignupData } from '../../../helpers/fillInputValue';
+import { registration } from '../../../http/authApi';
+import { setIsAuth, setUser } from '../../../redux/authSlice'
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -7,17 +12,21 @@ export default function Signup() {
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
 
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
   const handleChangeEmail = (e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)
   const handleChangePassword = (e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)
   const handleChangeFullName = (e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)
   const handleChangeUsername = (e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)
   const handleConfirmPassword = (e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
-      alert('Passwords do not match');
+    const isValid = validateSignupData(email, password, fullName, username, confirmPassword);
+    if (!isValid) {
+      alert('Please make sure all fields are filled and passwords match.');
+      return;
     }
 
     const data = {
@@ -27,13 +36,22 @@ export default function Signup() {
       username
     };
 
-    console.log(data);
+    try {
+      const response = await registration(data);
 
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setFullName('');
-    setUsername('');
+      dispatch(setUser(response.user));
+      dispatch(setIsAuth(true));
+
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setFullName('');
+      setUsername('');
+
+      navigate('/');
+    } catch (error) {
+      console.error('Registration error:', error);
+    }
   };
 
   return (
@@ -86,7 +104,7 @@ export default function Signup() {
         </div>
         <button type="submit" className="btn btn-primary">Submit</button>
 
-        <p>Already have an account? <a href="/login">Login</a></p>
+        <p>Already have an account? <NavLink to="/auth/login">Login</NavLink></p>
       </form>
     </div>
   )

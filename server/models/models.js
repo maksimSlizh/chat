@@ -58,7 +58,7 @@ const Message = sequelize.define('Message', {
   },
   receiverId: {
     type: DataTypes.INTEGER,
-    allowNull: true,  // ReceiverId не обязательно для групповых сообщений
+    allowNull: true,
     references: {
       model: User,
       key: 'id',
@@ -71,6 +71,10 @@ const Message = sequelize.define('Message', {
       model: 'Conversations',
       key: 'id',
     },
+  },
+  avatar: {
+    type: DataTypes.STRING,
+    allowNull: true,
   }
 });
 
@@ -84,6 +88,10 @@ const Conversation = sequelize.define('Conversation', {
     type: DataTypes.JSON,  // Массив сообщений (ID сообщений)
     allowNull: false,
     defaultValue: [],
+  },
+  groupName: {
+    type: DataTypes.STRING,
+    allowNull: true,  // Групповая переписка (имя группы)
   }
 });
 

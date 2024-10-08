@@ -1,7 +1,7 @@
 import { Conversation, Message, User } from '../models/models.js';
 import sequelize from '../sequelize.js';  // Убедитесь, что sequelize импортирован правильно
+import { getReceiverSocketId, io } from '../socket/socket.js';
 
-// Личное сообщение
 export const sendMessage = async (req, res) => {
   try {
     const { message } = req.body;
@@ -22,26 +22,51 @@ export const sendMessage = async (req, res) => {
     if (!conversation) {
       conversation = await Conversation.create({
         participants: [numericSenderId, numericReceiverId],
-        messages: []
+        messages: [],
+        groupName: null
       });
     }
 
-    // Создание нового сообщения
+    // Получаем данные отправителя
+    const sender = await User.findByPk(numericSenderId, {
+      attributes: ['id', 'username', 'avatar'] // Получаем аватарку и имя отправителя
+    });
+
+    // Создание нового сообщения с аватаром
     const newMessage = await Message.create({
       userId: numericSenderId,        // Отправитель
       receiverId: numericReceiverId,  // Получатель
       message,                        // Текст сообщения
-      conversationId: conversation.id // ID переписки
+      conversationId: conversation.id, // ID переписки
+      avatar: sender.avatar || null,   // Сохраняем аватар отправителя
     });
 
     // Обновляем массив сообщений в переписке
     const updatedMessages = [...conversation.messages, newMessage.id];
     await conversation.update({ messages: updatedMessages });
 
-    res.status(201).json({ message: 'Сообщение отправлено', newMessage });
+    // Отправляем новое сообщение всем участникам группы или только получателю
+    const receiverSocketId = getReceiverSocketId(numericReceiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('newMessage', newMessage);
+    }
+
+    // Notify the sender
+    io.to(req.socket.id).emit('newMessage', newMessage); // Ensure sender gets the message as well
+
+    res.status(201).json({
+      message: 'Сообщение отправлено',
+      newMessage: {
+        ...newMessage.toJSON(),
+        sender: {
+          id: sender.id,
+          username: sender.username,
+          avatar: sender.avatar || null // Используем null, если аватар отсутствует
+        }
+      }
+    });
 
   } catch (error) {
-    console.error('Ошибка в sendMessage controller:', error);
     res.status(500).json({ message: error.message, error: 'sendMessage controller' });
   }
 };
@@ -79,7 +104,6 @@ export const getMessages = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Ошибка в getMessages controller:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -111,11 +135,27 @@ export const getUserConversations = async (req, res) => {
       return res.status(404).json({ message: 'У вас нет переписок' });
     }
 
-    // Возвращаем список переписок с последними сообщениями и информацией о пользователях
-    res.status(200).json(conversations);
+    // Формируем ответ, где для каждой переписки фильтруем участников кроме текущего пользователя
+    const formattedConversations = await Promise.all(conversations.map(async (conversation) => {
+      const participants = conversation.participants;
+      const otherParticipantsIds = participants.filter(participantId => participantId !== userId);
+      const otherParticipants = await User.findAll({
+        where: {
+          id: otherParticipantsIds  // Ищем пользователей по их ID
+        },
+        attributes: ['id', 'username', 'fullName', 'avatar']
+      });
+
+      return {
+        ...conversation.get(),  // Получаем текущие данные переписки
+        otherParticipants  // Добавляем информацию об участниках
+      };
+    }));
+
+    // Возвращаем список переписок с пользователями
+    res.status(200).json(formattedConversations);
 
   } catch (error) {
-    console.error('Ошибка в getUserConversations controller:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -154,7 +194,6 @@ export const createGroupConversation = async (req, res) => {
 
     res.status(201).json({ message: 'Группа успешно создана', conversation: newConversation });
   } catch (error) {
-    console.error('Ошибка при создании группы:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -180,26 +219,51 @@ export const sendGroupMessage = async (req, res) => {
       return res.status(404).json({ message: 'Группа не найдена' });
     }
 
-    // Проверяем, является ли отправитель участником группы
     if (!conversation.participants.includes(senderId)) {
       return res.status(403).json({ message: 'Вы не являетесь участником этой группы' });
     }
 
-    // Создаем сообщение
-    const newMessage = await Message.create({
-      userId: senderId,
-      message,               // Текст сообщения
-      conversationId         // ID переписки (группы)
+    const sender = await User.findByPk(senderId, {
+      attributes: ['id', 'username', 'avatar']
     });
 
-    // Обновляем массив сообщений в переписке
+    const newMessage = await Message.create({
+      userId: senderId,                // Отправитель
+      message,                         // Текст сообщения
+      conversationId: conversationId,  // ID переписки (группы)
+      avatar: sender.avatar || null     // Сохраняем аватар отправителя
+    });
+
     const updatedMessages = [...conversation.messages, newMessage.id];
     await conversation.update({ messages: updatedMessages });
 
-    res.status(201).json({ message: 'Сообщение отправлено', newMessage });
+    // Отправляем новое сообщение всем участникам группы
+    conversation.participants.forEach(participantId => {
+      const participantSocketId = getReceiverSocketId(participantId);
+      if (participantSocketId) {
+        io.to(participantSocketId).emit('newMessage', {
+          ...newMessage.toJSON(),
+          sender: {
+            id: sender.id,
+            username: sender.username,
+            avatar: sender.avatar || null // Используем null, если аватар отсутствует
+          }
+        });
+      }
+    });
+
+    res.status(201).json({
+      message: 'Сообщение отправлено',
+      newMessage: {
+        ...newMessage.toJSON(),
+        sender: {
+          id: sender.id,
+          username: sender.username,
+          avatar: sender.avatar || null // Используем null, если аватар отсутствует
+        }
+      }
+    });
   } catch (error) {
-    console.error('Ошибка в sendGroupMessage controller:', error);
     res.status(500).json({ message: error.message });
   }
 };
-

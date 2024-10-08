@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import { User } from "../models/models.js";
 import generateTokenAndSetCookie from "../utils/generateToken.js";
 import path from 'path';
-import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 // Контроллер регистрации
 export const signup = async (req, res) => {
@@ -95,7 +95,7 @@ export const login = async (req, res) => {
 
 export const logout = (req, res) => {
   try {
-    res.clearCookie('token', '', {maxAge: 0,});
+    res.clearCookie('token', '', { maxAge: 0, });
     res.status(200).json({ message: "Вы вышли из аккаунта" });
   } catch (error) {
     res.status(500).json({ message: error.message, 'error': 'logout controller' });
@@ -104,32 +104,45 @@ export const logout = (req, res) => {
 
 export const updateAvatar = async (req, res) => {
   try {
-    const userId = req.user.id;  // Извлекаем ID пользователя из авторизации
 
-    // Проверяем, была ли загружена новая аватарка
+    const userId = req.user.id;  // Извлекаем ID пользователя
+    if (!userId) {
+      return res.status(401).json({ message: "Пользователь не авторизован" });
+    }
+
+    // Проверяем, была ли загружена аватарка
     if (req.files && req.files.avatar) {
-      let avatarFile = req.files.avatar;
+      const avatarFile = req.files.avatar;
 
-      // Создаем уникальное имя для файла аватарки
+      // Определяем путь для сохранения файла аватара
       const avatarFileName = Date.now() + path.extname(avatarFile.name);
-      const avatarPath = `/uploads/avatars/${avatarFileName}`;
+      const avatarFilePath = path.resolve('uploads', 'avatars', avatarFileName); // Корректный путь для загрузки
+
+      console.log('Путь для сохранения аватарки:', avatarFilePath); // Логирование пути для отладки
 
       // Сохраняем файл аватарки на сервере
-      avatarFile.mv(`./uploads/avatars/${avatarFileName}`, async (err) => {
+      avatarFile.mv(avatarFilePath, async (err) => {
         if (err) {
+          console.error('Ошибка при сохранении файла:', err); // Логируем ошибки сохранения
           return res.status(500).json({ message: 'Ошибка при загрузке файла' });
         }
 
-        // Обновляем аватарку в базе данных
-        await User.update({ avatar: avatarPath }, { where: { id: userId } });
+        try {
+          // Обновляем запись о пользователе в базе данных с новым путем аватара
+          const avatarUrl = `/uploads/avatars/${avatarFileName}`; // Путь для использования на клиенте
+          await User.update({ avatar: avatarUrl }, { where: { id: userId } });
 
-        res.status(200).json({ message: 'Аватарка успешно обновлена', avatar: avatarPath });
+          // Отправляем успешный ответ с новым аватаром
+          res.status(200).json({ message: 'Аватарка успешно обновлена', avatar: avatarUrl });
+        } catch (dbError) {;
+          res.status(500).json({ message: 'Ошибка при обновлении базы данных' });
+        }
       });
     } else {
       res.status(400).json({ message: 'Не выбрана аватарка для обновления' });
     }
   } catch (error) {
-    res.status(500).json({ message: error.message, 'error': 'updateAvatar controller' });
+    res.status(500).json({ message: error.message });
   }
 };
 

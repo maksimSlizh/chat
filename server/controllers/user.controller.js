@@ -3,28 +3,29 @@ import { Op } from 'sequelize';
 
 export const findUserByUsername = async (req, res) => {
   try {
-    const { username } = req.params;  // Получаем никнейм из параметров URL
+    const { username } = req.params;
 
-    // Поиск пользователя по никнейму
-    const user = await User.findOne({
-      where: { username },  // Ищем пользователя с этим никнеймом
-      attributes: ['id', 'username', 'fullName', 'avatar']  // Возвращаем только нужные поля
+    // Поиск пользователей по частичному совпадению с именем
+    const users = await User.findAll({
+      where: {
+        username: {
+          [Op.like]: `${username}%`  // Частичное совпадение
+        }
+      },
+      attributes: ['id', 'username', 'fullName', 'avatar'], // Возвращаем нужные поля
+      limit: 3 // Ограничиваем количество пользователей до 3
     });
 
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'Пользователи не найдены' });
     }
 
-    // Возвращаем ID и информацию о пользователе
-    res.status(200).json({
-      id: user.id,
-      username: user.username,
-      fullName: user.fullName,
-      avatar: user.avatar
-    });
+    // Возвращаем список пользователей
+    res.status(200).json(users);
 
   } catch (error) {
-    res.status(500).json({ message: error.message, error: 'findUserByUsername controller' });
+    console.error('Ошибка поиска пользователей:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
